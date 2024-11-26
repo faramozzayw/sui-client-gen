@@ -6,6 +6,7 @@ use clap::*;
 use colored::*;
 use genco::fmt;
 use genco::prelude::*;
+use genco::tokens::{Item, ItemStr};
 use move_core_types::account_address::AccountAddress;
 use move_model::model::ModuleEnv;
 use move_package::source_package::parsed_manifest::PackageName;
@@ -351,12 +352,41 @@ fn gen_packages_for_model(
         // generate index.ts
         let published_at = published_at_map.get(pkg_id).unwrap_or(pkg_id);
         let versions = version_table.get(pkg_id).unwrap();
+
+        let mut pkgs_versions = js::Tokens::new();
+        pkgs_versions.append(Item::Literal(ItemStr::from("{")));
+        for (published_at, version) in versions {
+            quote_in!(pkgs_versions => $(version.value()): $[str]($[const](published_at.to_hex_literal())) as const,);
+        }
+        pkgs_versions.append(Item::Literal(ItemStr::from("}")));
+
         let tokens: js::Tokens = quote!(
-            export const PACKAGE_ID = $[str]($[const](pkg_id.to_hex_literal()));
-            export const PUBLISHED_AT = $[str]($[const](published_at.to_hex_literal()));
+            export let PACKAGE_ID = $[str]($[const](pkg_id.to_hex_literal()));$['\n']
+            export let PUBLISHED_AT = $[str]($[const](published_at.to_hex_literal()));$['\n']
             $(for (published_at, version) in versions {
-                export const PKG_V$(version.value()) = $[str]($[const](published_at.to_hex_literal()));
+                export let PKG_V$(version.value()) = $[str]($[const](published_at.to_hex_literal()));$['\n']
             })
+            export let PKGS = $pkgs_versions;$['\n']
+            export type GetPkg<K extends keyof typeof PKGS> = (typeof PKGS)[K];$['\n']
+            export const getPkg = <K extends keyof typeof PKGS>(version: K): GetPkg<K> => {
+                return PKGS[version] || "";
+            };$['\n']
+            export function setAddress(address: string) {
+                PACKAGE_ID = address;
+                PUBLISHED_AT = address;
+            }$['\n']
+            export function setPackageId(address: string) {
+              PACKAGE_ID = address;
+            }$['\n']
+            export function setPublishedAt(address: string) {
+              PUBLISHED_AT = address;
+            }$['\n']
+            export function getPackageId(): string {
+              return PACKAGE_ID;
+            }$['\n']
+            export function getPublishedAt(): string {
+              return PUBLISHED_AT;
+            }$['\n']
         );
         write_tokens_to_file(&tokens, &package_path.join("index.ts"))?;
 

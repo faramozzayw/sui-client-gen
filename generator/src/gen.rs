@@ -313,7 +313,10 @@ fn gen_full_name_with_address(
             self_addr.to_hex_literal()
         )
     });
-    let pkg_import = js::import("../index", format!("PKG_V{}", version.value()));
+    let version_value = version.value();
+
+    let pkg_import = js::import("../index", "getPkg");
+    let get_pkg = js::import("../index", "GetPkg");
 
     // `${PKG_V1}::module::name`
     let mut toks = js::Tokens::new();
@@ -322,10 +325,11 @@ fn gen_full_name_with_address(
     }
     toks.append(Item::Literal(ItemStr::from("${")));
     if as_type {
-        quote_in!(toks => typeof $pkg_import)
+        quote_in!(toks => typeof $get_pkg<$version_value>);
     } else {
-        quote_in!(toks => $pkg_import);
+        quote_in!(toks => $pkg_import($version_value));
     }
+
     toks.append(Item::Literal(ItemStr::from("}")));
     quote_in!(toks => ::$(strct.get_full_name_str()));
     if open_quote {
@@ -920,6 +924,7 @@ impl<'env, 'a> FunctionsGen<'env, 'a> {
         };
         let obj = import_with_possible_alias("obj");
         let pure = import_with_possible_alias("pure");
+        // dbg!(&pure);
         let generic = import_with_possible_alias("generic");
         let vector = import_with_possible_alias("vector");
         let option = import_with_possible_alias("option");
@@ -982,7 +987,7 @@ impl<'env, 'a> FunctionsGen<'env, 'a> {
         tokens: &mut Tokens<JavaScript>,
     ) -> Result<()> {
         let transaction = &js::import("@mysten/sui/transactions", "Transaction");
-        let published_at = &js::import("..", "PUBLISHED_AT");
+        let get_published_at_fn = &js::import("..", "getPublishedAt");
 
         func.get_type_parameter_count();
 
@@ -1011,7 +1016,7 @@ impl<'env, 'a> FunctionsGen<'env, 'a> {
                 })
             ) {
                 return tx.moveCall({
-                    target: $[str]($($published_at)::$[const](func.get_full_name_str())),
+                    target: $[str]($($get_published_at_fn())::$[const](func.get_full_name_str())),
                     $(match type_arg_count {
                         0 => (),
                         1 => { typeArguments: [typeArg], },
