@@ -315,7 +315,7 @@ fn gen_full_name_with_address(
     let version_value = version.value();
 
     let pkg_import = js::import("../index", "getPkg");
-    let get_pkg = js::import("../index", "GetPkg");
+    let _get_pkg = js::import("../index", "GetPkg");
 
     // `${PKG_V1}::module::name`
     let mut toks = js::Tokens::new();
@@ -1674,35 +1674,7 @@ impl<'env, 'a> StructsGen<'env, 'a> {
         );
 
         // `0x2::foo::Bar<${ToTypeStr<ToTypeArgument<T>>}, ${ToTypeStr<ToPhantomTypeArgument<P>>}>`
-        let reified_full_type_name_as_toks = match type_params.len() {
-            _ => quote!(string),
-            //0 => quote!($(self.gen_full_name_with_address(strct, true, true))),
-            //_ => {
-            //    let mut toks = js::Tokens::new();
-            //    toks.append(Item::OpenQuote(true));
-            //    quote_in!(toks => $(self.gen_full_name_with_address(strct, false, true)));
-            //    toks.append(Item::Literal(ItemStr::from("<")));
-            //    for (idx, param) in type_params_str.iter().enumerate() {
-            //        let is_phantom = strct.is_phantom_parameter(idx);
-
-            //        toks.append(Item::Literal(ItemStr::from("${")));
-            //        if is_phantom {
-            //            quote_in!(toks => $phantom_to_type_str<$to_phantom_type_argument<$param>>);
-            //        } else {
-            //            quote_in!(toks => $to_type_str<$to_type_argument<$param>>);
-            //        }
-            //        toks.append(Item::Literal(ItemStr::from("}")));
-
-            //        let is_last = idx == &type_params_str.len() - 1;
-            //        if !is_last {
-            //            toks.append(Item::Literal(ItemStr::from(", ")));
-            //        }
-            //    }
-            //    toks.append(Item::Literal(ItemStr::from(">")));
-            //    toks.append(Item::CloseQuote);
-            //    quote!($toks)
-            //}
-        };
+        let reified_full_type_name_as_toks = quote!(string);
 
         // [PhantomToTypeStr<ToPhantomTypeArgument<T>>, ToTypeStr<ToTypeArgument<P>>, ...]
         let reified_type_args_as_toks = &quote!([$(for(idx, param) in type_params_str.iter().enumerate() join (, ) =>
@@ -1714,33 +1686,7 @@ impl<'env, 'a> StructsGen<'env, 'a> {
         )]);
 
         // `0x2::foo::Bar<${ToTypeStr<T>}, ${ToTypeStr<P>}>`
-        let static_full_type_name_as_toks = &match type_params.len() {
-            _ => quote!(string),
-            //  0 => quote!($(self.gen_full_name_with_address(strct, true, true))),
-            //  _ => {
-            //      let mut toks = js::Tokens::new();
-            //      toks.append(Item::OpenQuote(true));
-            //      quote_in!(toks => $(self.gen_full_name_with_address(strct, false, true)));
-            //      toks.append(Item::Literal(ItemStr::from("<")));
-            //      for (idx, param) in type_params_str.iter().enumerate() {
-            //          toks.append(Item::Literal(ItemStr::from("${")));
-            //          if strct.is_phantom_parameter(idx) {
-            //              quote_in!(toks => $phantom_to_type_str<$param>);
-            //          } else {
-            //              quote_in!(toks => $to_type_str<$param>);
-            //          }
-            //          toks.append(Item::Literal(ItemStr::from("}")));
-
-            //          let is_last = idx == &type_params_str.len() - 1;
-            //          if !is_last {
-            //              toks.append(Item::Literal(ItemStr::from(", ")));
-            //          }
-            //      }
-            //      toks.append(Item::Literal(ItemStr::from(">")));
-            //      toks.append(Item::CloseQuote);
-            //      quote!($toks)
-            //  }
-        };
+        let static_full_type_name_as_toks = &quote!(string);
 
         // `[true, false]`
         let type_arg_is_phantom = (0..type_params.len()).map(|idx| strct.is_phantom_parameter(idx));

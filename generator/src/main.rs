@@ -366,7 +366,7 @@ fn gen_packages_for_model(
             $(for (published_at, version) in versions {
                 export let PKG_V$(version.value()) = $[str]($[const](published_at.to_hex_literal()));$['\n']
             })
-            export let PKGS = $pkgs_versions;$['\n']
+            export let PKGS: Record<number, string> = $pkgs_versions;$['\n']
             export const getPkg = (version: number): string => {
                 return PKGS[version] || "";
             };$['\n']
