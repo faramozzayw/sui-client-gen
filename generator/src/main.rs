@@ -356,7 +356,7 @@ fn gen_packages_for_model(
         let mut pkgs_versions = js::Tokens::new();
         pkgs_versions.append(Item::Literal(ItemStr::from("{")));
         for (published_at, version) in versions {
-            quote_in!(pkgs_versions => $(version.value()): $[str]($[const](published_at.to_hex_literal())) as const,);
+            quote_in!(pkgs_versions => $(version.value()): $[str]($[const](published_at.to_hex_literal())),);
         }
         pkgs_versions.append(Item::Literal(ItemStr::from("}")));
 
@@ -367,8 +367,7 @@ fn gen_packages_for_model(
                 export let PKG_V$(version.value()) = $[str]($[const](published_at.to_hex_literal()));$['\n']
             })
             export let PKGS = $pkgs_versions;$['\n']
-            export type GetPkg<K extends keyof typeof PKGS> = (typeof PKGS)[K];$['\n']
-            export const getPkg = <K extends keyof typeof PKGS>(version: K): GetPkg<K> => {
+            export const getPkg = (version: number): string => {
                 return PKGS[version] || "";
             };$['\n']
             export function setAddress(address: string) {
@@ -386,6 +385,9 @@ fn gen_packages_for_model(
             }$['\n']
             export function getPublishedAt(): string {
               return PUBLISHED_AT;
+            }$['\n']
+            export function setPkg(address: string, index: number) {
+                PKGS[index] = address;
             }$['\n']
         );
         write_tokens_to_file(&tokens, &package_path.join("index.ts"))?;

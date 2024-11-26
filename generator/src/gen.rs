@@ -296,7 +296,6 @@ fn gen_full_name_with_address(
     type_origin_table: &TypeOriginTable,
     version_table: &VersionTable,
     open_quote: bool,
-    as_type: bool,
 ) -> js::Tokens {
     let origin_pkg_addr = get_origin_pkg_addr(strct, type_origin_table);
     let self_addr = strct.module_env.self_address();
@@ -324,12 +323,7 @@ fn gen_full_name_with_address(
         toks.append(Item::OpenQuote(true));
     }
     toks.append(Item::Literal(ItemStr::from("${")));
-    if as_type {
-        quote_in!(toks => typeof $get_pkg<$version_value>);
-    } else {
-        quote_in!(toks => $pkg_import($version_value));
-    }
-
+    quote_in!(toks => $pkg_import($version_value));
     toks.append(Item::Literal(ItemStr::from("}")));
     quote_in!(toks => ::$(strct.get_full_name_str()));
     if open_quote {
@@ -1080,18 +1074,12 @@ impl<'env, 'a> StructsGen<'env, 'a> {
         get_full_name_with_address_str(strct, self.type_origin_table)
     }
 
-    fn gen_full_name_with_address(
-        &self,
-        strct: &StructEnv,
-        open_quote: bool,
-        as_type: bool,
-    ) -> js::Tokens {
+    fn gen_full_name_with_address(&self, strct: &StructEnv, open_quote: bool) -> js::Tokens {
         gen_full_name_with_address(
             strct,
             self.type_origin_table,
             self.version_table,
             open_quote,
-            as_type,
         )
     }
 
@@ -1464,9 +1452,9 @@ impl<'env, 'a> StructsGen<'env, 'a> {
             export function is$(&struct_name)(type: string): boolean {
                 type = $compress_sui_type(type);
                 $(if type_params.is_empty() {
-                    return type === $(self.gen_full_name_with_address(strct, true, false))
+                    return type === $(self.gen_full_name_with_address(strct, true))
                 } else {
-                    return type.startsWith($(self.gen_full_name_with_address(strct, true, false)) + '<')
+                    return type.startsWith($(self.gen_full_name_with_address(strct, true)) + '<')
                 });
             }
         }
@@ -1687,32 +1675,33 @@ impl<'env, 'a> StructsGen<'env, 'a> {
 
         // `0x2::foo::Bar<${ToTypeStr<ToTypeArgument<T>>}, ${ToTypeStr<ToPhantomTypeArgument<P>>}>`
         let reified_full_type_name_as_toks = match type_params.len() {
-            0 => quote!($(self.gen_full_name_with_address(strct, true, true))),
-            _ => {
-                let mut toks = js::Tokens::new();
-                toks.append(Item::OpenQuote(true));
-                quote_in!(toks => $(self.gen_full_name_with_address(strct, false, true)));
-                toks.append(Item::Literal(ItemStr::from("<")));
-                for (idx, param) in type_params_str.iter().enumerate() {
-                    let is_phantom = strct.is_phantom_parameter(idx);
+            _ => quote!(string),
+            //0 => quote!($(self.gen_full_name_with_address(strct, true, true))),
+            //_ => {
+            //    let mut toks = js::Tokens::new();
+            //    toks.append(Item::OpenQuote(true));
+            //    quote_in!(toks => $(self.gen_full_name_with_address(strct, false, true)));
+            //    toks.append(Item::Literal(ItemStr::from("<")));
+            //    for (idx, param) in type_params_str.iter().enumerate() {
+            //        let is_phantom = strct.is_phantom_parameter(idx);
 
-                    toks.append(Item::Literal(ItemStr::from("${")));
-                    if is_phantom {
-                        quote_in!(toks => $phantom_to_type_str<$to_phantom_type_argument<$param>>);
-                    } else {
-                        quote_in!(toks => $to_type_str<$to_type_argument<$param>>);
-                    }
-                    toks.append(Item::Literal(ItemStr::from("}")));
+            //        toks.append(Item::Literal(ItemStr::from("${")));
+            //        if is_phantom {
+            //            quote_in!(toks => $phantom_to_type_str<$to_phantom_type_argument<$param>>);
+            //        } else {
+            //            quote_in!(toks => $to_type_str<$to_type_argument<$param>>);
+            //        }
+            //        toks.append(Item::Literal(ItemStr::from("}")));
 
-                    let is_last = idx == &type_params_str.len() - 1;
-                    if !is_last {
-                        toks.append(Item::Literal(ItemStr::from(", ")));
-                    }
-                }
-                toks.append(Item::Literal(ItemStr::from(">")));
-                toks.append(Item::CloseQuote);
-                quote!($toks)
-            }
+            //        let is_last = idx == &type_params_str.len() - 1;
+            //        if !is_last {
+            //            toks.append(Item::Literal(ItemStr::from(", ")));
+            //        }
+            //    }
+            //    toks.append(Item::Literal(ItemStr::from(">")));
+            //    toks.append(Item::CloseQuote);
+            //    quote!($toks)
+            //}
         };
 
         // [PhantomToTypeStr<ToPhantomTypeArgument<T>>, ToTypeStr<ToTypeArgument<P>>, ...]
@@ -1726,30 +1715,31 @@ impl<'env, 'a> StructsGen<'env, 'a> {
 
         // `0x2::foo::Bar<${ToTypeStr<T>}, ${ToTypeStr<P>}>`
         let static_full_type_name_as_toks = &match type_params.len() {
-            0 => quote!($(self.gen_full_name_with_address(strct, true, true))),
-            _ => {
-                let mut toks = js::Tokens::new();
-                toks.append(Item::OpenQuote(true));
-                quote_in!(toks => $(self.gen_full_name_with_address(strct, false, true)));
-                toks.append(Item::Literal(ItemStr::from("<")));
-                for (idx, param) in type_params_str.iter().enumerate() {
-                    toks.append(Item::Literal(ItemStr::from("${")));
-                    if strct.is_phantom_parameter(idx) {
-                        quote_in!(toks => $phantom_to_type_str<$param>);
-                    } else {
-                        quote_in!(toks => $to_type_str<$param>);
-                    }
-                    toks.append(Item::Literal(ItemStr::from("}")));
+            _ => quote!(string),
+            //  0 => quote!($(self.gen_full_name_with_address(strct, true, true))),
+            //  _ => {
+            //      let mut toks = js::Tokens::new();
+            //      toks.append(Item::OpenQuote(true));
+            //      quote_in!(toks => $(self.gen_full_name_with_address(strct, false, true)));
+            //      toks.append(Item::Literal(ItemStr::from("<")));
+            //      for (idx, param) in type_params_str.iter().enumerate() {
+            //          toks.append(Item::Literal(ItemStr::from("${")));
+            //          if strct.is_phantom_parameter(idx) {
+            //              quote_in!(toks => $phantom_to_type_str<$param>);
+            //          } else {
+            //              quote_in!(toks => $to_type_str<$param>);
+            //          }
+            //          toks.append(Item::Literal(ItemStr::from("}")));
 
-                    let is_last = idx == &type_params_str.len() - 1;
-                    if !is_last {
-                        toks.append(Item::Literal(ItemStr::from(", ")));
-                    }
-                }
-                toks.append(Item::Literal(ItemStr::from(">")));
-                toks.append(Item::CloseQuote);
-                quote!($toks)
-            }
+            //          let is_last = idx == &type_params_str.len() - 1;
+            //          if !is_last {
+            //              toks.append(Item::Literal(ItemStr::from(", ")));
+            //          }
+            //      }
+            //      toks.append(Item::Literal(ItemStr::from(">")));
+            //      toks.append(Item::CloseQuote);
+            //      quote!($toks)
+            //  }
         };
 
         // `[true, false]`
@@ -1780,7 +1770,7 @@ impl<'env, 'a> StructsGen<'env, 'a> {
             export class $(&struct_name)$(self.gen_params_toks(strct, type_params_str.clone(), &extends_type_argument, &extends_phantom_type_argument)) implements $struct_class {
                 __StructClass = true as const;$['\n']
 
-                static readonly $$typeName = $(self.gen_full_name_with_address(strct, true, false));
+                static readonly $$typeName = $(self.gen_full_name_with_address(strct, true));
                 static readonly $$numTypeParams = $(type_params.len());
                 static readonly $$isPhantom = $is_phantom_value_toks as const;$['\n']
 
